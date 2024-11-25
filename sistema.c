@@ -4,9 +4,10 @@
 #include <time.h>
 
 #define MAX_LEN 100
+#define MAX_POINTS_PER_DAY 4
 
 void storage_date(const char *username) {
-    FILE *file = fopen("dados.txt", "a");
+    FILE *file = fopen("dados.txt", "a+");
     if (file == NULL) {
         perror("Falta criar o arquivo");
         return;
@@ -16,24 +17,48 @@ void storage_date(const char *username) {
     time(&now);
     struct tm *local = localtime(&now);
 
-    fprintf(file, "%s\n%04d-%02d-%02d %02d:%02d:%02d\n",
-            username,
-            local->tm_year + 1900,
-            local->tm_mon + 1,
-            local->tm_mday,
-            local->tm_hour,
-            local->tm_min,
-            local->tm_sec);
+    char current_date[MAX_LEN];
+    snprintf(current_date, sizeof(current_date), "%04d-%02d-%02d",
+             local->tm_year + 1900,
+             local->tm_mon + 1,
+             local->tm_mday);
+
+    char line[MAX_LEN];
+    int points_today = 0;
+
+    // Contar quantas batidas de ponto o usuário já fez hoje
+    while (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, username, strlen(username)) == 0 && line[strlen(username)] == ' ') {
+            char *date = line + strlen(username) + 1;
+            if (strncmp(date, current_date, strlen(current_date)) == 0) {
+                points_today++;
+            }
+        }
+    }
+
+    if (points_today >= MAX_POINTS_PER_DAY) {
+        printf("Você já atingiu o limite de batidas por hoje.\n");
+    } else {
+        fprintf(file, "%s %04d-%02d-%02d %02d:%02d:%02d\n",
+                username,
+                local->tm_year + 1900,
+                local->tm_mon + 1,
+                local->tm_mday,
+                local->tm_hour,
+                local->tm_min,
+                local->tm_sec);
+
+        printf("Ponto registrado para %s: %04d-%02d-%02d %02d:%02d:%02d\n",
+               username,
+               local->tm_year + 1900,
+               local->tm_mon + 1,
+               local->tm_mday,
+               local->tm_hour,
+               local->tm_min,
+               local->tm_sec);
+    }
 
     fclose(file);
-    printf("Ponto registrado para %s: %04d-%02d-%02d %02d:%02d:%02d\n",
-           username,
-           local->tm_year + 1900,
-           local->tm_mon + 1,
-           local->tm_mday,
-           local->tm_hour,
-           local->tm_min,
-           local->tm_sec);
 }
 
 void read_dates(const char *username) {
@@ -44,23 +69,11 @@ void read_dates(const char *username) {
     }
 
     char line[MAX_LEN];
-    int user_found = 0;
     printf("Pontos de %s:\n", username);
     while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, username, strlen(username)) == 0 && line[strlen(username)] == '\n') {
-            user_found = 1;
-            continue;
+        if (strncmp(line, username, strlen(username)) == 0 && line[strlen(username)] == ' ') {
+            printf("%s", line + strlen(username) + 1); // Imprime a data e hora
         }
-        if (user_found && line[0] != '\n' && line[0] != '\0') {
-            printf("%s", line);
-        }
-        if (user_found && (line[0] == '\n' || line[0] == '\0')) {
-            break;
-        }
-    }
-
-    if (!user_found) {
-        printf("Nenhum ponto encontrado para %s.\n", username);
     }
 
     fclose(file);
@@ -154,5 +167,6 @@ int main() {
             printf("Digite uma entrada válida.\n");
         }
     }
+
+    return 0;
 }
-   
